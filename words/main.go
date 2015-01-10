@@ -80,9 +80,13 @@ func SplitOnVowelGroups(name string) (ret []string) {
 
 func main() {
 	gen := 0
-	flag.IntVar(&gen, "gen", 0, "generate given number of names")
+	flag.IntVar(&gen, "g", 0, "generate given number of names")
 	write := false
 	flag.BoolVar(&write, "w", false, "write out analysis to json files")
+	stats := false
+	flag.BoolVar(&stats, "s", false, "print out analysis stats")
+	algorithm := "vg3"
+	flag.StringVar(&algorithm, "a", "vg3", "generation algorithm [vg3, 2gr, 3gr, pt2, pt3]")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -194,31 +198,79 @@ func main() {
 		ioutil.WriteFile("vowelgroups.json", b, 0755)
 	}
 
+	if stats {
+		fmt.Printf("twograms: %d\n", len(twograms))
+		fmt.Printf("threegrams: %d\n", len(threegrams))
+		fmt.Printf("prefixes: %d\n", len(prefixes))
+		fmt.Printf("joins: %d\n", len(joins))
+		fmt.Printf("suffixes: %d\n", len(suffixes))
+		fmt.Printf("vowelgroups: %d\n", len(vowelgroups))
+	}
+
+	var algFunc func() string
+	switch algorithm {
+	case "vg3":
+		algFunc = func() string {
+			return GenerateMarkovName(vowelgroups, 3)
+		}
+	case "2gr":
+		algFunc = func() string {
+			return GenerateMarkovName(twograms, 6)
+		}
+	case "3gr":
+		algFunc = func() string {
+			return GenerateMarkovName(threegrams, 4)
+		}
+	case "pt2":
+		algFunc = func() string {
+			return GeneratePartsName(prefixes, suffixes)
+		}
+	case "pt3":
+		algFunc = func() string {
+			return GeneratePartsName(prefixes, joins, suffixes)
+		}
+	default:
+		log.Fatal("Unknown name algorithm specified")
+	}
+
 	for i := 0; i < gen; i++ {
-		fmt.Println(GenerateVowelGroupName(vowelgroups))
+		fmt.Println(algFunc())
 	}
 }
 
-// GenerateVowelGroupName makes a name by traversing the vowelgroup randomly.
-// It limits the traversal to a maximum of 3 steps and returns immediately on a
+// GenerateMarkovName makes a name by traversing the map randomly.
+// It limits the name length to the given maxlen and returns immediately on a
 // dead end.
-func GenerateVowelGroupName(vowelgroups map[string]count) (ret string) {
+func GenerateMarkovName(markov map[string]count, maxiter int) (ret string) {
 	key := ""
-	if val, ok := vowelgroups[ret]; ok {
+	if val, ok := markov[ret]; ok {
 		key = val.RandomKey()
 	}
 	ret = ret + key
-	if val, ok := vowelgroups[key]; ok {
-		key = val.RandomKey()
-	} else {
-		return
+	for i := 0; i < maxiter; i++ {
+		if val, ok := markov[key]; ok {
+			key = val.RandomKey()
+			ret = ret + key
+		} else {
+			return
+		}
 	}
-	ret = ret + key
-	if val, ok := vowelgroups[key]; ok {
-		key = val.RandomKey()
-	} else {
-		return
+	return
+}
+
+// GeneratePartsName makes a name by picking a random item from each list and
+// appending it
+func GeneratePartsName(lists ...count) (ret string) {
+	for _, list := range lists {
+		i := 0
+		j := rand.Intn(len(list) - 1)
+		for k := range list {
+			if i == j {
+				ret = ret + k
+				break
+			}
+			i++
+		}
 	}
-	ret = ret + key
 	return
 }
