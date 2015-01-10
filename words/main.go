@@ -15,6 +15,7 @@ import (
 
 type count map[string]uint
 
+// RandomKey returns a random key from the count map, weighted by the counts
 func (c *count) RandomKey() string {
 	var arr []string
 	for key, val := range *c {
@@ -31,6 +32,7 @@ func (c *count) RandomKey() string {
 	return arr[rand.Intn(len(arr)-1)]
 }
 
+// NGram builds an ngram list of character groupings from a string
 func NGram(name string, size int) (ret []string) {
 	tmp := ""
 	for index, chr := range []rune(name) {
@@ -43,6 +45,7 @@ func NGram(name string, size int) (ret []string) {
 	return
 }
 
+// FillGrams makes a map of which gram leads to another, weighted by occurence
 func FillGrams(gramList []string, gramMap map[string]count) {
 	start := ""
 	for _, gram := range gramList {
@@ -57,6 +60,8 @@ func FillGrams(gramList []string, gramMap map[string]count) {
 	}
 }
 
+// SplitOnVowelGroups breaks a string into a chunks on the start of every
+// contiguous group of vowels
 func SplitOnVowelGroups(name string) (ret []string) {
 	vg := regexp.MustCompile("[AEIOUYaeiouy]+")
 	indexes := vg.FindAllStringIndex(name, -1)
@@ -194,6 +199,9 @@ func main() {
 	}
 }
 
+// GenerateVowelGroupName makes a name by traversing the vowelgroup randomly.
+// It limits the traversal to a maximum of 3 steps and returns immediately on a
+// dead end.
 func GenerateVowelGroupName(vowelgroups map[string]count) (ret string) {
 	key := ""
 	if val, ok := vowelgroups[ret]; ok {
