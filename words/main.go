@@ -257,7 +257,7 @@ func main() {
 			return GeneratePartsName(min, prefixes, joins, suffixes)
 		}
 	default:
-		log.Fatal("Unknown name algorithm specified")
+		log.Fatal("Unknown name algorithm specified. Valid algorithms are: vg3, vg3b, 2gr, 3gr, pt2, pt3")
 	}
 
 	for i := 0; i < gen; i++ {
