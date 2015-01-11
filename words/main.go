@@ -62,17 +62,23 @@ func FillGrams(gramList []string, gramMap map[string]count) {
 
 // SplitOnVowelGroups breaks a string into a chunks on the start of every
 // contiguous group of vowels
-func SplitOnVowelGroups(name string) (ret []string) {
+func SplitOnVowelGroups(name string, bugged bool) (ret []string) {
 	vg := regexp.MustCompile("[AEIOUYaeiouy]+")
 	indexes := vg.FindAllStringIndex(name, -1)
 	start := 0
 	for _, index := range indexes {
 		if index[0] > 0 {
 			ret = append(ret, name[start:index[1]])
-			start = index[1]
+			if bugged {
+				start = index[1] + 1
+			} else {
+				start = index[1]
+			}
 		}
 	}
-	if start < len(name) {
+	if bugged {
+		ret[len(ret)-1] += name[start:]
+	} else if start < len(name) {
 		if len(ret) < 2 {
 			ret = append(ret, name[start:])
 		} else {
@@ -92,7 +98,7 @@ func main() {
 	raw := false
 	flag.BoolVar(&raw, "r", false, "print out name parts individually")
 	algorithm := "vg3"
-	flag.StringVar(&algorithm, "a", "vg3", "generation algorithm [vg3, 2gr, 3gr, pt2, pt3]")
+	flag.StringVar(&algorithm, "a", "vg3", "generation algorithm [vg3, vg3b, 2gr, 3gr, pt2, pt3]")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -121,7 +127,7 @@ func main() {
 		}
 		FillGrams(NGram(name, 2), twograms)
 		FillGrams(NGram(name, 3), threegrams)
-		vgs := SplitOnVowelGroups(name)
+		vgs := SplitOnVowelGroups(name, algorithm == "vg3b")
 		// Skip processing names that only have a prefix
 		if len(vgs) < 2 {
 			continue
@@ -220,7 +226,7 @@ func main() {
 
 	var algFunc func() []string
 	switch algorithm {
-	case "vg3":
+	case "vg3", "vg3b":
 		algFunc = func() []string {
 			return GenerateMarkovName(vowelgroups, 3)
 		}
