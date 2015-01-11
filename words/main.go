@@ -69,11 +69,15 @@ func SplitOnVowelGroups(name string) (ret []string) {
 	for _, index := range indexes {
 		if index[0] > 0 {
 			ret = append(ret, name[start:index[1]])
-			start = index[1] + 1
+			start = index[1]
 		}
 	}
-	if start < len(name)-1 {
-		ret = append(ret, name[start:])
+	if start < len(name) {
+		if len(ret) == 0 {
+			ret = append(ret, name[start:])
+		} else {
+			ret[len(ret)-1] += name[start:]
+		}
 	}
 	return
 }
@@ -199,12 +203,13 @@ func main() {
 	}
 
 	if stats {
-		fmt.Printf("twograms: %d\n", len(twograms))
-		fmt.Printf("threegrams: %d\n", len(threegrams))
-		fmt.Printf("prefixes: %d\n", len(prefixes))
-		fmt.Printf("joins: %d\n", len(joins))
-		fmt.Printf("suffixes: %d\n", len(suffixes))
-		fmt.Printf("vowelgroups: %d\n", len(vowelgroups))
+		fmt.Println("Analysis stats:")
+		fmt.Printf("  twograms: %d\n", len(twograms))
+		fmt.Printf("  threegrams: %d\n", len(threegrams))
+		fmt.Printf("  prefixes: %d\n", len(prefixes))
+		fmt.Printf("  joins: %d\n", len(joins))
+		fmt.Printf("  suffixes: %d\n", len(suffixes))
+		fmt.Printf("  vowelgroups: %d\n\n", len(vowelgroups))
 	}
 
 	var algFunc func() string
