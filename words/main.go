@@ -236,27 +236,74 @@ func main() {
 		fmt.Printf("  vowelgroups: %d\n\n", len(vowelgroups))
 	}
 
+	if uniq && gen > 0 {
+		switch algorithm {
+		case "pt2", "pt3":
+			if len(prefixes) < gen {
+				log.Fatalf("Not enough prefixes (%d) to satisfy %d unique generations", len(prefixes), gen)
+			}
+			if len(joins) < gen {
+				log.Fatalf("Not enough joins (%d) to satisfy %d unique generations", len(joins), gen)
+			}
+			if len(suffixes) < gen {
+				log.Fatalf("Not enough suffixes (%d) to satisfy %d unique generations", len(suffixes), gen)
+			}
+		case "2gr":
+			if len(twograms) < gen {
+				log.Fatalf("Not enough 2-grams (%d) to satisfy %d unique generations", len(twograms), gen)
+			}
+		case "3gr":
+			if len(threegrams) < gen {
+				log.Fatalf("Not enough 3-grams (%d) to satisfy %d unique generations", len(threegrams), gen)
+			}
+		case "vg3", "vg3b":
+			if len(vowelgroups) < gen {
+				log.Fatalf("Not enough vowel groups (%d) to satisfy %d unique generations", len(vowelgroups), gen)
+			}
+		}
+	}
+
 	var algFunc func() []string
+	pfxUsed := make(map[string]bool, 0)
+	joinUsed := make(map[string]bool, 0)
+	sfxUsed := make(map[string]bool, 0)
+	partsUsed := make(map[int]map[string]bool, 0)
+	used := make(map[string]bool, 0)
 	switch algorithm {
 	case "vg3", "vg3b":
 		algFunc = func() []string {
-			return GenerateMarkovName(min, vowelgroups, 3, uniq)
+			return GenerateMarkovName(uniq, min, vowelgroups, 3, used)
 		}
 	case "2gr":
 		algFunc = func() []string {
-			return GenerateMarkovName(0, twograms, 6, uniq)
+			return GenerateMarkovName(uniq, 0, twograms, 6, used)
 		}
 	case "3gr":
 		algFunc = func() []string {
-			return GenerateMarkovName(0, threegrams, 4, uniq)
+			return GenerateMarkovName(uniq, 0, threegrams, 4, used)
 		}
 	case "pt2":
 		algFunc = func() []string {
-			return GeneratePartsName(min, uniq, prefixes, suffixes)
+			if _, ok := partsUsed[0]; !ok {
+				partsUsed[0] = pfxUsed
+			}
+			if _, ok := partsUsed[1]; !ok {
+				partsUsed[1] = sfxUsed
+			}
+			return GeneratePartsName(uniq, min, partsUsed, prefixes, suffixes)
 		}
 	case "pt3":
 		algFunc = func() []string {
-			return GeneratePartsName(min, uniq, prefixes, joins, suffixes)
+			if _, ok := partsUsed[0]; !ok {
+				partsUsed[0] = pfxUsed
+			}
+			if _, ok := partsUsed[1]; !ok {
+				partsUsed[1] = joinUsed
+			}
+			if _, ok := partsUsed[2]; !ok {
+				partsUsed[2] = sfxUsed
+			}
+			return GeneratePartsName(uniq, min, partsUsed, prefixes, joins, suffixes)
 		}
 	default:
 		log.Fatal("Unknown name algorithm specified. Valid algorithms are: vg3, vg3b, 2gr, 3gr, pt2, pt3")
@@ -274,8 +321,7 @@ func main() {
 // GenerateMarkovName makes a name by traversing the map randomly.
 // It limits the name length to the given maxlen and returns immediately on a
 // dead end.
-func GenerateMarkovName(min int, markov map[string]count, maxiter int, uniq bool) (ret []string) {
-	used := make(map[string]bool, 0)
+func GenerateMarkovName(uniq bool, min int, markov map[string]count, maxiter int, used map[string]bool) (ret []string) {
 	key := ""
 	if val, ok := markov[""]; ok {
 		for i := 0; i < len(markov); i++ {
@@ -290,7 +336,7 @@ func GenerateMarkovName(min int, markov map[string]count, maxiter int, uniq bool
 		if val, ok := markov[key]; ok {
 			for i := 0; i < len(markov); i++ {
 				key = val.RandomKey()
-				if _, ok := used[key]; ok {
+				if _, ok := used[key]; ok && uniq {
 					continue
 				}
 				if len(key) >= min {
@@ -308,8 +354,7 @@ func GenerateMarkovName(min int, markov map[string]count, maxiter int, uniq bool
 
 // GeneratePartsName makes a name by picking a random item from each list and
 // appending it
-func GeneratePartsName(min int, uniq bool, lists ...count) (ret []string) {
-	used := make(map[string]bool, 0)
+func GeneratePartsName(uniq bool, min int, used map[int]map[string]bool, lists ...count) (ret []string) {
 	for idx, list := range lists {
 		if len(list) == 0 {
 			continue
@@ -318,22 +363,28 @@ func GeneratePartsName(min int, uniq bool, lists ...count) (ret []string) {
 		for key := range list {
 			keys = append(keys, key)
 		}
-		for i := 0; i < len(keys); i++ {
+		for len(keys) > 0 {
 			j := 0
 			if len(keys) > 1 {
 				j = rand.Intn(len(keys) - 1)
 			}
 			key := keys[j]
-			if _, ok := used[key]; ok {
+			if _, ok := used[idx][key]; ok && uniq {
+				keys[j] = keys[len(keys)-1]
+				keys = keys[:len(keys)-1]
 				continue
 			}
 			if len(key) >= min {
-				used[key] = true
+				used[idx][key] = true
 				ret = append(ret, key)
 				if idx == len(lists)-1 {
 					return
 				}
 				break
+			} else {
+				// remove keys that not meet minimum requirement so we don't waste time
+				keys[j] = keys[len(keys)-1]
+				keys = keys[:len(keys)-1]
 			}
 		}
 	}
