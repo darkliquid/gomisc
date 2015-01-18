@@ -113,6 +113,8 @@ func main() {
 	flag.BoolVar(&raw, "r", false, "print out name parts individually")
 	algorithm := "vg3"
 	flag.StringVar(&algorithm, "a", "vg3", "generation algorithm [vg3, vg3b, 2gr, 3gr, pt2, pt3]")
+	uniq := false
+	flag.BoolVar(&uniq, "u", false, "only ever use a name fragment once")
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -238,23 +240,23 @@ func main() {
 	switch algorithm {
 	case "vg3", "vg3b":
 		algFunc = func() []string {
-			return GenerateMarkovName(min, vowelgroups, 3)
+			return GenerateMarkovName(min, vowelgroups, 3, uniq)
 		}
 	case "2gr":
 		algFunc = func() []string {
-			return GenerateMarkovName(0, twograms, 6)
+			return GenerateMarkovName(0, twograms, 6, uniq)
 		}
 	case "3gr":
 		algFunc = func() []string {
-			return GenerateMarkovName(0, threegrams, 4)
+			return GenerateMarkovName(0, threegrams, 4, uniq)
 		}
 	case "pt2":
 		algFunc = func() []string {
-			return GeneratePartsName(min, prefixes, suffixes)
+			return GeneratePartsName(min, uniq, prefixes, suffixes)
 		}
 	case "pt3":
 		algFunc = func() []string {
-			return GeneratePartsName(min, prefixes, joins, suffixes)
+			return GeneratePartsName(min, uniq, prefixes, joins, suffixes)
 		}
 	default:
 		log.Fatal("Unknown name algorithm specified. Valid algorithms are: vg3, vg3b, 2gr, 3gr, pt2, pt3")
@@ -272,7 +274,8 @@ func main() {
 // GenerateMarkovName makes a name by traversing the map randomly.
 // It limits the name length to the given maxlen and returns immediately on a
 // dead end.
-func GenerateMarkovName(min int, markov map[string]count, maxiter int) (ret []string) {
+func GenerateMarkovName(min int, markov map[string]count, maxiter int, uniq bool) (ret []string) {
+	used := make(map[string]bool, 0)
 	key := ""
 	if val, ok := markov[""]; ok {
 		for i := 0; i < len(markov); i++ {
@@ -287,7 +290,11 @@ func GenerateMarkovName(min int, markov map[string]count, maxiter int) (ret []st
 		if val, ok := markov[key]; ok {
 			for i := 0; i < len(markov); i++ {
 				key = val.RandomKey()
+				if _, ok := used[key]; ok {
+					continue
+				}
 				if len(key) >= min {
+					used[key] = true
 					break
 				}
 			}
@@ -301,7 +308,8 @@ func GenerateMarkovName(min int, markov map[string]count, maxiter int) (ret []st
 
 // GeneratePartsName makes a name by picking a random item from each list and
 // appending it
-func GeneratePartsName(min int, lists ...count) (ret []string) {
+func GeneratePartsName(min int, uniq bool, lists ...count) (ret []string) {
+	used := make(map[string]bool, 0)
 	for idx, list := range lists {
 		if len(list) == 0 {
 			continue
@@ -316,7 +324,11 @@ func GeneratePartsName(min int, lists ...count) (ret []string) {
 				j = rand.Intn(len(keys) - 1)
 			}
 			key := keys[j]
+			if _, ok := used[key]; ok {
+				continue
+			}
 			if len(key) >= min {
+				used[key] = true
 				ret = append(ret, key)
 				if idx == len(lists)-1 {
 					return
